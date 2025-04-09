@@ -1,9 +1,18 @@
-import React from 'react'
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Navbar from './Components/Navbar';
+import Footer from './Components/Footer';
 
-export default function App() {
+const App = () => {
   return (
-    <div>
-      <p> hello bsaaymaaa</p>
+    <div className="min-h-screen bg-gray-100 dark:bg-black text-gray-900 dark:text-white flex flex-col">
+      <Router>
+        <Navbar />
+        <main className="flex-grow container mx-auto px-4 py-6">
+        </main>
+        <Footer />
+      </Router>
     </div>
-  )
-}
+  );
+};
+
+export default App;
