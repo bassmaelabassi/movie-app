@@ -1,100 +1,98 @@
-import { useEffect, useState } from "react";
-import axios from "axios";
-
-const API_KEY = "Api";
-const BASE_URL = "https://api.themoviedb.org/3";
+import { useEffect, useState, useCallback } from "react";
+import { searchMovies } from "../services/api";
+import MoviesCard from "../Components/MoviesCard";
+import { debounce } from "lodash";
 
 const Home = () => {
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+
+  const loadMovies = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await searchMovies(searchTerm, page);
+      setMovies(data.results);
+      setTotalPages(data.totalPages);
+    } catch (error) {
+      console.error("Error:", error);
+      setMovies([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [searchTerm, page]);
 
   useEffect(() => {
-    fetchPopularMovies();
-  }, []);
+    loadMovies();
+  }, [loadMovies]);
 
-  const fetchPopularMovies = async () => {
-    try {
-      const response = await axios.get(`${BASE_URL}/movie/popular`, {
-        params: {
-          api_key: API_KEY,
-          language: "fr-FR",
-        },
-      });
-      setMovies(response.data.results);
-    } catch (error) {
-      console.error("Erreur lors du chargement des films :", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const debouncedSearch = useCallback(
+    debounce((searchValue) => {
+      setSearchTerm(searchValue);
+      setPage(1);
+    }, 500),
+    []
+  );
 
-  const handleSearch = async (e) => {
-    e.preventDefault();
-    if (!searchTerm) return;
-
-    try {
-      setLoading(true);
-      const response = await axios.get(`${BASE_URL}/search/movie`, {
-        params: {
-          api_key: API_KEY,
-          query: searchTerm,
-          language: "fr-FR",
-        },
-      });
-      setMovies(response.data.results);
-    } catch (error) {
-      console.error("Erreur lors de la recherche :", error);
-    } finally {
-      setLoading(false);
-    }
+  const handleSearchChange = (e) => {
+    debouncedSearch(e.target.value);
   };
 
   return (
     <div className="p-6 dark:bg-gray-900 min-h-screen">
       <h1 className="text-3xl font-bold mb-4 text-center text-gray-800 dark:text-white">
-        🎬 Films Populaires
+        🎬 Recherche de Films
       </h1>
 
-      <form onSubmit={handleSearch} className="flex justify-center mb-6">
+      <div className="flex justify-center mb-6">
         <input
           type="text"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={handleSearchChange}
           placeholder="Rechercher un film..."
-          className="px-4 py-2 w-64 rounded-l-full border dark:bg-gray-800 dark:text-white"
+          className="px-4 py-2 w-64 rounded-full border dark:bg-gray-800 dark:text-white"
         />
-        <button
-          type="submit"
-          className="bg-red-800 text-white px-4 py-2 rounded-r-full hover:bg-red-700"
-        >
-          Rechercher
-        </button>
-      </form>
+      </div>
 
       {loading ? (
-        <div className="text-center text-white animate-pulse">Chargement...</div>
-      ) : (
-        <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {movies.map((movie) => (
-            <div key={movie.id} className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden shadow-md transition transform hover:scale-105">
-              <img
-                src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`}
-                alt={movie.title}
-                className="w-full h-72 object-cover"
-              />
-              <div className="p-4">
-                <h2 className="text-lg font-bold text-gray-800 dark:text-white">{movie.title}</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-300">
-                  ⭐ {movie.vote_average} | 🗓️ {movie.release_date}
-                </p>
-                <p className="mt-2 text-gray-700 dark:text-gray-400 text-sm line-clamp-3">
-                  {movie.overview || "Pas de description disponible."}
-                </p>
-              </div>
-            </div>
-          ))}
+        <div className="flex justify-center items-center py-20">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-red-800"></div>
         </div>
+      ) : movies.length === 0 ? (
+        <div className="text-center py-10 text-gray-800 dark:text-white">
+          Aucun film trouvé
+        </div>
+      ) : (
+        <>
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {movies.map((movie) => (
+              <MoviesCard key={movie.imdbID} movie={movie} />
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex justify-center mt-8 gap-2">
+              <button
+                onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                disabled={page === 1}
+                className="px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 disabled:opacity-50"
+              >
+                Précédent
+              </button>
+              <span className="px-4 py-2 text-gray-800 dark:text-white">
+                Page {page} / {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
+                disabled={page >= totalPages}
+                className="px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 disabled:opacity-50"
+              >
+                Suivant
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
